@@ -227,7 +227,7 @@ class PluginAPIService:
                 json=json_data,
                 params=params,
                 headers=headers,
-                timeout=30.0
+                timeout=300.0
             )
             response.raise_for_status()
             return response.json()

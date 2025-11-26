@@ -4,7 +4,6 @@ OpenAI兼容的API端点
 用户通过我们的key/token调用，我们再用plug-in key调用plug-in-api
 """
 from typing import List, Dict, Any
-import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 
@@ -13,8 +12,6 @@ from app.api.deps import get_plugin_api_service
 from app.models.user import User
 from app.services.plugin_api_service import PluginAPIService
 from app.schemas.plugin_api import ChatCompletionRequest
-
-logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/v1", tags=["OpenAI兼容API"])
@@ -66,10 +63,6 @@ async def chat_completions(
     
     我们使用用户对应的plug-in key调用plug-in-api
     """
-    # 记录收到的请求
-    logger.info(f"收到聊天补全请求 - 用户ID: {current_user.id}, 用户名: {current_user.username}")
-    logger.info(f"请求内容: {request.model_dump()}")
-    
     try:
         # 如果是流式请求
         if request.stream:
@@ -96,14 +89,12 @@ async def chat_completions(
             )
             return result
     except ValueError as e:
-        logger.error(f"ValueError: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
-        logger.error(f"聊天补全失败 - 异常类型: {type(e).__name__}, 详情: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"聊天补全失败: {str(e)}"
+            detail=f"聊天补全失败"
         )
