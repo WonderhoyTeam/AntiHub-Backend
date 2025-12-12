@@ -36,13 +36,14 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = Field(default=7, description="Refresh Token 过期时间（天）")
     refresh_token_secret_key: Optional[str] = Field(default=None, description="Refresh Token 密钥（默认使用 JWT 密钥）")
     
-    # OAuth 配置
-    oauth_client_id: str = Field(..., description="OAuth Client ID")
-    oauth_client_secret: str = Field(..., description="OAuth Client Secret")
-    oauth_redirect_uri: str = Field(..., description="OAuth 回调地址")
-    oauth_authorization_endpoint: str = Field(..., description="OAuth 授权端点")
-    oauth_token_endpoint: str = Field(..., description="OAuth 令牌端点")
-    oauth_user_info_endpoint: str = Field(..., description="OAuth 用户信息端点")
+    # Linux.do OAuth 配置 (可选)
+    linuxdo_client_id: str = Field(default="", description="Linux.do OAuth Client ID")
+    linuxdo_client_secret: str = Field(default="", description="Linux.do OAuth Client Secret")
+    linuxdo_redirect_uri: str = Field(default="", description="Linux.do OAuth 回调地址")
+    # Linux.do OAuth endpoints (hardcoded)
+    linuxdo_authorization_endpoint: str = "https://connect.linux.do/oauth2/authorize"
+    linuxdo_token_endpoint: str = "https://connect.linux.do/oauth2/token"
+    linuxdo_user_info_endpoint: str = "https://connect.linux.do/api/user"
 
     # GitHub OAuth
     github_client_id: str = Field(default="", env="GITHUB_CLIENT_ID")
@@ -143,6 +144,25 @@ class Settings(BaseSettings):
     def refresh_secret_key(self) -> str:
         """获取 Refresh Token 密钥"""
         return self.refresh_token_secret_key or self.jwt_secret_key
+
+    @property
+    def linuxdo_enabled(self) -> bool:
+        """检查 Linux.do OAuth 是否已配置"""
+        return bool(self.linuxdo_client_id and self.linuxdo_client_secret)
+
+    @property
+    def github_enabled(self) -> bool:
+        """检查 GitHub OAuth 是否已配置"""
+        return bool(self.github_client_id and self.github_client_secret)
+
+    @property
+    def pocketid_enabled(self) -> bool:
+        """检查 PocketID OAuth 是否已配置"""
+        return bool(
+            self.pocketid_base_url
+            and self.pocketid_client_id
+            and self.pocketid_client_secret
+        )
 
 
 # 全局配置实例

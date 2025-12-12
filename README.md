@@ -111,15 +111,12 @@ JWT_EXPIRE_HOURS=24
 REFRESH_TOKEN_EXPIRE_DAYS=7
 # REFRESH_TOKEN_SECRET_KEY=your-refresh-token-secret-key  # 可选，默认使用 JWT_SECRET_KEY
 
-# OAuth 配置（Linux.do）
-OAUTH_CLIENT_ID=your-oauth-client-id
-OAUTH_CLIENT_SECRET=your-oauth-client-secret
-OAUTH_REDIRECT_URI=http://localhost:8008/api/auth/sso/callback
-OAUTH_AUTHORIZATION_ENDPOINT=https://connect.linux.do/oauth2/authorize
-OAUTH_TOKEN_ENDPOINT=https://connect.linux.do/oauth2/token
-OAUTH_USER_INFO_ENDPOINT=https://connect.linux.do/api/user
+# OAuth 配置（Linux.do）- 可选，如不配置则禁用该登录方式
+LINUXDO_CLIENT_ID=your-linuxdo-client-id
+LINUXDO_CLIENT_SECRET=your-linuxdo-client-secret
+LINUXDO_REDIRECT_URI=http://localhost:8008/api/auth/sso/callback
 
-# GitHub OAuth 配置
+# GitHub OAuth 配置 - 可选，如不配置则禁用该登录方式
 GITHUB_CLIENT_ID=your-github-client-id
 GITHUB_CLIENT_SECRET=your-github-client-secret
 GITHUB_REDIRECT_URI=http://localhost:3000/api/auth/github/callback

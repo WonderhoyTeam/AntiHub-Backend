@@ -106,13 +106,13 @@ class OAuthService:
             授权 URL
         """
         params = {
-            "client_id": self.settings.oauth_client_id,
+            "client_id": self.settings.linuxdo_client_id,
             "response_type": "code",
             "state": state,
-            "redirect_uri": redirect_uri or self.settings.oauth_redirect_uri,
+            "redirect_uri": redirect_uri or self.settings.linuxdo_redirect_uri,
         }
-        
-        base_url = self.settings.oauth_authorization_endpoint
+
+        base_url = self.settings.linuxdo_authorization_endpoint
         return f"{base_url}?{urlencode(params)}"
     
     # ==================== 令牌交换 ====================
@@ -141,18 +141,18 @@ class OAuthService:
                 data = {
                     "grant_type": "authorization_code",
                     "code": code,
-                    "redirect_uri": redirect_uri or self.settings.oauth_redirect_uri,
+                    "redirect_uri": redirect_uri or self.settings.linuxdo_redirect_uri,
                 }
-                
+
                 # 使用 Basic Auth 传递 client_id 和 client_secret
                 auth = (
-                    self.settings.oauth_client_id,
-                    self.settings.oauth_client_secret
+                    self.settings.linuxdo_client_id,
+                    self.settings.linuxdo_client_secret
                 )
-                
+
                 # 发送令牌交换请求
                 response = await client.post(
-                    self.settings.oauth_token_endpoint,
+                    self.settings.linuxdo_token_endpoint,
                     data=data,
                     auth=auth,
                     timeout=30.0
@@ -212,7 +212,7 @@ class OAuthService:
                 }
                 
                 response = await client.get(
-                    self.settings.oauth_user_info_endpoint,
+                    self.settings.linuxdo_user_info_endpoint,
                     headers=headers,
                     timeout=30.0
                 )
@@ -289,13 +289,13 @@ class OAuthService:
                 
                 # 使用 Basic Auth
                 auth = (
-                    self.settings.oauth_client_id,
-                    self.settings.oauth_client_secret
+                    self.settings.linuxdo_client_id,
+                    self.settings.linuxdo_client_secret
                 )
-                
+
                 # 发送刷新令牌请求
                 response = await client.post(
-                    self.settings.oauth_token_endpoint,
+                    self.settings.linuxdo_token_endpoint,
                     data=data,
                     auth=auth,
                     timeout=30.0

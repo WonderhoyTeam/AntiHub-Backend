@@ -2,7 +2,7 @@
 OIDC Provider Registry
 管理和提供预定义的 OIDC 提供商配置
 """
-from typing import Dict, Optional
+from typing import Any, Dict, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -20,6 +20,26 @@ class OIDCProviderRegistry:
     """
 
     @staticmethod
+    def is_provider_enabled(provider_id: str) -> bool:
+        """
+        检查提供商是否已启用（已配置必要的凭据）
+
+        Args:
+            provider_id: 提供商标识
+
+        Returns:
+            如果提供商已配置则返回 True
+        """
+        settings = get_settings()
+        if provider_id == "linux_do":
+            return settings.linuxdo_enabled
+        elif provider_id == "github":
+            return settings.github_enabled
+        elif provider_id == "pocketid":
+            return settings.pocketid_enabled
+        return False
+
+    @staticmethod
     def get_linux_do_config() -> OIDCProviderConfig:
         """
         获取 Linux.do OIDC 提供商配置
@@ -33,12 +53,12 @@ class OIDCProviderRegistry:
             provider_id="linux_do",
             provider_name="Linux.do",
             provider_type=OIDCProviderType.LINUX_DO,
-            authorization_endpoint=settings.oauth_authorization_endpoint,
-            token_endpoint=settings.oauth_token_endpoint,
-            userinfo_endpoint=settings.oauth_user_info_endpoint,
-            client_id=settings.oauth_client_id,
-            client_secret=settings.oauth_client_secret,
-            redirect_uri=settings.oauth_redirect_uri,
+            authorization_endpoint=settings.linuxdo_authorization_endpoint,
+            token_endpoint=settings.linuxdo_token_endpoint,
+            userinfo_endpoint=settings.linuxdo_user_info_endpoint,
+            client_id=settings.linuxdo_client_id,
+            client_secret=settings.linuxdo_client_secret,
+            redirect_uri=settings.linuxdo_redirect_uri,
             scope="openid profile email",
             use_basic_auth=True,
             # Linux.do 用户信息字段映射
@@ -141,7 +161,7 @@ class OIDCProviderRegistry:
             提供商配置
 
         Raises:
-            OAuthError: 不支持的提供商
+            OAuthError: 不支持的提供商或提供商未启用
         """
         provider_configs = {
             "linux_do": OIDCProviderRegistry.get_linux_do_config,
@@ -154,6 +174,14 @@ class OIDCProviderRegistry:
             raise OAuthError(
                 message=f"不支持的 OAuth 提供商: {provider_id}",
                 error_code="UNSUPPORTED_PROVIDER",
+                details={"provider_id": provider_id}
+            )
+
+        # Check if provider is enabled
+        if not OIDCProviderRegistry.is_provider_enabled(provider_id):
+            raise OAuthError(
+                message=f"OAuth 提供商未配置: {provider_id}",
+                error_code="PROVIDER_NOT_CONFIGURED",
                 details={"provider_id": provider_id}
             )
 
@@ -185,15 +213,20 @@ class OIDCProviderRegistry:
     @staticmethod
     def get_supported_providers() -> Dict[str, str]:
         """
-        获取所有支持的提供商列表
+        获取所有已启用的提供商列表
 
         Returns:
-            提供商 ID 到名称的映射
+            提供商 ID 到名称的映射（仅包含已配置的提供商）
         """
-        return {
+        all_providers = {
             "linux_do": "Linux.do",
             "github": "GitHub",
             "pocketid": "PocketID",
+        }
+        return {
+            provider_id: name
+            for provider_id, name in all_providers.items()
+            if OIDCProviderRegistry.is_provider_enabled(provider_id)
         }
 
     @staticmethod
@@ -205,8 +238,12 @@ class OIDCProviderRegistry:
             provider_id: 提供商标识
 
         Returns:
-            提供商元数据，如果提供商不存在则返回 None
+            提供商元数据，如果提供商不存在或未启用则返回 None
         """
+        # Check if provider is enabled first
+        if not OIDCProviderRegistry.is_provider_enabled(provider_id):
+            return None
+
         try:
             config = OIDCProviderRegistry.get_provider_config(provider_id)
 
@@ -225,5 +262,21 @@ class OIDCProviderRegistry:
                 "supports_refresh": True,
                 "description": descriptions.get(provider_id, f"{config.provider_name} OAuth/OIDC authentication")
             }
-        except:
+        except Exception:
             return None
+
+    @staticmethod
+    def get_all_enabled_providers_metadata() -> List[Dict[str, Any]]:
+        """
+        获取所有已启用提供商的元数据列表
+
+        Returns:
+            已启用提供商的元数据列表
+        """
+        all_provider_ids = ["linux_do", "github", "pocketid"]
+        result = []
+        for provider_id in all_provider_ids:
+            metadata = OIDCProviderRegistry.get_provider_metadata(provider_id)
+            if metadata:
+                result.append(metadata)
+        return result

@@ -205,23 +205,18 @@ async def list_providers():
     """
     获取支持的 OIDC 提供商列表
 
-    返回所有配置的 OIDC 提供商及其详细元数据，包括：
+    返回所有已配置的 OIDC 提供商及其详细元数据，包括：
     - id: 提供商标识
     - name: 提供商显示名称
     - type: 提供商类型
     - enabled: 是否启用
     - supports_refresh: 是否支持刷新令牌
     - description: 提供商描述
+
+    注意：仅返回已配置凭据的提供商
     """
     try:
-        provider_ids = OIDCProviderRegistry.get_supported_providers()
-        providers = []
-
-        for provider_id in provider_ids.keys():
-            metadata = OIDCProviderRegistry.get_provider_metadata(provider_id)
-            if metadata:
-                providers.append(metadata)
-
+        providers = OIDCProviderRegistry.get_all_enabled_providers_metadata()
         return {"providers": providers}
     except Exception as e:
         raise HTTPException(
