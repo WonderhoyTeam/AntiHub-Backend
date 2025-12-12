@@ -199,22 +199,30 @@ async def oidc_callback(
 @router.get(
     "/providers",
     summary="获取支持的 OIDC 提供商列表",
-    description="返回所有可用的 OIDC 提供商"
+    description="返回所有可用的 OIDC 提供商及其详细元数据"
 )
 async def list_providers():
     """
     获取支持的 OIDC 提供商列表
 
-    返回所有配置的 OIDC 提供商及其显示名称
+    返回所有配置的 OIDC 提供商及其详细元数据，包括：
+    - id: 提供商标识
+    - name: 提供商显示名称
+    - type: 提供商类型
+    - enabled: 是否启用
+    - supports_refresh: 是否支持刷新令牌
+    - description: 提供商描述
     """
     try:
-        providers = OIDCProviderRegistry.get_supported_providers()
-        return {
-            "providers": [
-                {"id": provider_id, "name": provider_name}
-                for provider_id, provider_name in providers.items()
-            ]
-        }
+        provider_ids = OIDCProviderRegistry.get_supported_providers()
+        providers = []
+
+        for provider_id in provider_ids.keys():
+            metadata = OIDCProviderRegistry.get_provider_metadata(provider_id)
+            if metadata:
+                providers.append(metadata)
+
+        return {"providers": providers}
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

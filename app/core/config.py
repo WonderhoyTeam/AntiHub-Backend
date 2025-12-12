@@ -71,6 +71,18 @@ class Settings(BaseSettings):
         default=True,
         description="是否允许创建新账号（通过OAuth登录）"
     )
+
+    # PocketID OAuth Configuration
+    pocketid_base_url: str = Field(
+        default="",
+        description="PocketID 服务器基础 URL (例如: https://pocketid.example.com)"
+    )
+    pocketid_client_id: str = Field(default="", description="PocketID Client ID")
+    pocketid_client_secret: str = Field(default="", description="PocketID Client Secret")
+    pocketid_redirect_uri: str = Field(
+        default="",
+        description="PocketID OAuth 回调地址"
+    )
     
     @field_validator("app_env")
     @classmethod

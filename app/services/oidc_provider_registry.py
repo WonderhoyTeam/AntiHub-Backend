@@ -89,6 +89,47 @@ class OIDCProviderRegistry:
         )
 
     @staticmethod
+    def get_pocketid_config() -> OIDCProviderConfig:
+        """
+        获取 PocketID OIDC 提供商配置
+
+        PocketID is a self-hosted OIDC provider with passkey support.
+        Follows standard OIDC specification.
+
+        Returns:
+            PocketID 提供商配置
+        """
+        settings = get_settings()
+
+        # PocketID base URL (e.g., https://pocketid.example.com)
+        base_url = settings.pocketid_base_url.rstrip('/')
+
+        return OIDCProviderConfig(
+            provider_id="pocketid",
+            provider_name="PocketID",
+            provider_type=OIDCProviderType.POCKETID,
+            # Standard OIDC endpoints
+            authorization_endpoint=f"{base_url}/authorize",
+            token_endpoint=f"{base_url}/token",
+            userinfo_endpoint=f"{base_url}/userinfo",
+            client_id=settings.pocketid_client_id,
+            client_secret=settings.pocketid_client_secret,
+            redirect_uri=settings.pocketid_redirect_uri,
+            scope="openid profile email",
+            use_basic_auth=True,  # Standard OIDC uses Basic Auth
+            # PocketID user info mapping (standard OIDC claims)
+            user_info_mapping={
+                "sub": "sub",  # Standard OIDC subject identifier
+                "username": "preferred_username",  # Or "email" if no username
+                "name": "name",
+                "email": "email",
+                "email_verified": "email_verified",
+                "picture": "picture",
+                "trust_level": "trust_level"  # Custom claim, defaults to 0
+            }
+        )
+
+    @staticmethod
     def get_provider_config(provider_id: str) -> OIDCProviderConfig:
         """
         根据提供商 ID 获取配置
@@ -105,6 +146,7 @@ class OIDCProviderRegistry:
         provider_configs = {
             "linux_do": OIDCProviderRegistry.get_linux_do_config,
             "github": OIDCProviderRegistry.get_github_config,
+            "pocketid": OIDCProviderRegistry.get_pocketid_config,
         }
 
         config_getter = provider_configs.get(provider_id)
@@ -151,4 +193,37 @@ class OIDCProviderRegistry:
         return {
             "linux_do": "Linux.do",
             "github": "GitHub",
+            "pocketid": "PocketID",
         }
+
+    @staticmethod
+    def get_provider_metadata(provider_id: str) -> Optional[Dict[str, Any]]:
+        """
+        获取提供商的详细元数据
+
+        Args:
+            provider_id: 提供商标识
+
+        Returns:
+            提供商元数据，如果提供商不存在则返回 None
+        """
+        try:
+            config = OIDCProviderRegistry.get_provider_config(provider_id)
+
+            # Provider-specific descriptions
+            descriptions = {
+                "linux_do": "Linux.do community authentication",
+                "github": "GitHub OAuth authentication",
+                "pocketid": "Self-hosted OIDC with passkey support"
+            }
+
+            return {
+                "id": config.provider_id,
+                "name": config.provider_name,
+                "type": config.provider_type.value,
+                "enabled": True,
+                "supports_refresh": True,
+                "description": descriptions.get(provider_id, f"{config.provider_name} OAuth/OIDC authentication")
+            }
+        except:
+            return None

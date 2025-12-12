@@ -76,7 +76,7 @@
 ### 2. 安装依赖
 
 ```bash
-# 使用 uv 
+# 使用 uv
 uv sync
 ```
 
@@ -131,6 +131,14 @@ PLUGIN_API_ENCRYPTION_KEY=your-encryption-key-here-min-32-chars
 
 # 账号创建配置
 ALLOW_NEW_ACCOUNT_CREATION=true  # 设置为 false 可禁止新用户注册
+
+# PocketID OAuth 配置（可选）
+# 自托管 OIDC 提供商，支持 Passkey 认证
+# 仓库: https://github.com/pocket-id/pocket-id
+POCKETID_BASE_URL=https://pocketid.example.com
+POCKETID_CLIENT_ID=your-pocketid-client-id
+POCKETID_CLIENT_SECRET=your-pocketid-client-secret
+POCKETID_REDIRECT_URI=http://localhost:3000/auth/callback
 ```
 
 **重要**：`PLUGIN_API_ENCRYPTION_KEY` 必须是一个有效的 Fernet 密钥（32字节的URL安全base64编码）。可以使用以下 Python 代码生成：
@@ -196,9 +204,14 @@ uv run python app/main.py
 
 | 方法 | 路径 | 描述 |
 |------|------|------|
-| GET | `/api/auth/oidc/providers` | 获取支持的 OIDC 提供商列表 |
-| GET | `/api/auth/oidc/{provider}/login` | 发起 OIDC 登录 (provider: linux_do, github) |
+| GET | `/api/auth/oidc/providers` | 获取支持的 OIDC 提供商列表（含详细元数据） |
+| GET | `/api/auth/oidc/{provider}/login` | 发起 OIDC 登录 (provider: linux_do, github, pocketid) |
 | POST | `/api/auth/oidc/{provider}/callback` | OIDC 回调处理 |
+
+**支持的提供商：**
+- `linux_do` - Linux.do 社区认证
+- `github` - GitHub OAuth 认证
+- `pocketid` - 自托管 OIDC 提供商（支持 Passkey）
 
 ### 健康检查
 
@@ -271,21 +284,21 @@ axios.interceptors.response.use(
   response => response,
   async error => {
     const originalRequest = error.config;
-    
+
     // 如果是 401 错误且不是刷新请求本身
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      
+
       try {
         // 使用 refresh_token 获取新令牌
         const { data } = await axios.post('/api/auth/refresh', {
           refresh_token: localStorage.getItem('refresh_token')
         });
-        
+
         // 保存新令牌
         localStorage.setItem('access_token', data.access_token);
         localStorage.setItem('refresh_token', data.refresh_token);
-        
+
         // 重试原请求
         originalRequest.headers.Authorization = `Bearer ${data.access_token}`;
         return axios(originalRequest);
@@ -297,7 +310,7 @@ axios.interceptors.response.use(
         return Promise.reject(refreshError);
       }
     }
-    
+
     return Promise.reject(error);
   }
 );
@@ -391,8 +404,38 @@ curl -X POST "http://localhost:8008/api/auth/github/callback" \
 使用新的通用 OIDC 端点，支持多种 OAuth 提供商：
 
 ```bash
-# 1. 获取支持的提供商列表
+# 1. 获取支持的提供商列表（含详细元数据）
 curl "http://localhost:8008/api/auth/oidc/providers"
+
+# 响应示例:
+# {
+#   "providers": [
+#     {
+#       "id": "linux_do",
+#       "name": "Linux.do",
+#       "type": "linux_do",
+#       "enabled": true,
+#       "supports_refresh": true,
+#       "description": "Linux.do community authentication"
+#     },
+#     {
+#       "id": "github",
+#       "name": "GitHub",
+#       "type": "github",
+#       "enabled": true,
+#       "supports_refresh": true,
+#       "description": "GitHub OAuth authentication"
+#     },
+#     {
+#       "id": "pocketid",
+#       "name": "PocketID",
+#       "type": "pocketid",
+#       "enabled": true,
+#       "supports_refresh": true,
+#       "description": "Self-hosted OIDC with passkey support"
+#     }
+#   ]
+# }
 
 # 2. 使用 Linux.do 登录
 curl "http://localhost:8008/api/auth/oidc/linux_do/login"
@@ -400,7 +443,10 @@ curl "http://localhost:8008/api/auth/oidc/linux_do/login"
 # 3. 使用 GitHub 登录
 curl "http://localhost:8008/api/auth/oidc/github/login"
 
-# 4. 处理回调 (前端调用)
+# 4. 使用 PocketID 登录
+curl "http://localhost:8008/api/auth/oidc/pocketid/login"
+
+# 5. 处理回调 (前端调用)
 curl -X POST "http://localhost:8008/api/auth/oidc/{provider}/callback" \
   -H "Content-Type: application/json" \
   -d '{
@@ -408,6 +454,9 @@ curl -X POST "http://localhost:8008/api/auth/oidc/{provider}/callback" \
     "state": "oauth_state"
   }'
 ```
+
+**前端集成详细指南：**
+完整的 React/TypeScript 实现示例请参考 [FRONTEND_MIGRATION.md](FRONTEND_MIGRATION.md)
 
 ### 获取当前用户信息
 

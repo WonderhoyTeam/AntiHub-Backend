@@ -12,6 +12,7 @@ class OIDCProviderType(str, Enum):
     LINUX_DO = "linux_do"
     GITHUB = "github"
     GOOGLE = "google"
+    POCKETID = "pocketid"
     GENERIC = "generic"
 
 
