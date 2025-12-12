@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.repositories.plugin_api_key_repository import PluginAPIKeyRepository
+from app.repositories.user_repository import UserRepository
 from app.utils.encryption import encrypt_api_key, decrypt_api_key
 from app.schemas.plugin_api import (
     PluginAPIKeyCreate,
@@ -43,6 +44,7 @@ class PluginAPIService:
         self.db = db
         self.settings = get_settings()
         self.repo = PluginAPIKeyRepository(db)
+        self.user_repo = UserRepository(db)
         self.base_url = self.settings.plugin_api_base_url
         self.admin_key = self.settings.plugin_api_admin_key
         self._redis = redis
@@ -57,6 +59,21 @@ class PluginAPIService:
     def _get_cache_key(self, user_id: int) -> str:
         """生成缓存键"""
         return f"plugin_api_key:{user_id}"
+
+    async def _get_user_dedicated_header(self, user_id: int) -> Dict[str, str]:
+        """
+        获取用户的专属账号设置请求头
+
+        Args:
+            user_id: 用户ID
+
+        Returns:
+            包含 X-Use-Only-Dedicated 头的字典（如果用户设置了仅使用专属账号）
+        """
+        user = await self.user_repo.get_by_id(user_id)
+        if user and user.use_only_dedicated:
+            return {"X-Use-Only-Dedicated": "true"}
+        return {}
     
     # ==================== 密钥管理 ====================
     
@@ -316,14 +333,18 @@ class PluginAPIService:
         api_key = await self.get_user_api_key(user_id)
         if not api_key:
             raise ValueError("用户未配置plug-in API密钥")
-        
+
         # 更新最后使用时间
         await self.update_last_used(user_id)
-        
+
         # 发送请求
         url = f"{self.base_url}{path}"
         headers = {"Authorization": f"Bearer {api_key}"}
-        
+
+        # 添加用户专属账号设置头
+        dedicated_header = await self._get_user_dedicated_header(user_id)
+        headers.update(dedicated_header)
+
         # 添加额外的请求头
         if extra_headers:
             headers.update(extra_headers)
@@ -386,11 +407,15 @@ class PluginAPIService:
         api_key = await self.get_user_api_key(user_id)
         if not api_key:
             raise ValueError("用户未配置plug-in API密钥")
-        
+
         # 发送流式请求
         url = f"{self.base_url}{path}"
         headers = {"Authorization": f"Bearer {api_key}"}
-        
+
+        # 添加用户专属账号设置头
+        dedicated_header = await self._get_user_dedicated_header(user_id)
+        headers.update(dedicated_header)
+
         # 添加额外的请求头
         if extra_headers:
             headers.update(extra_headers)
@@ -752,13 +777,18 @@ class PluginAPIService:
         
         # 更新最后使用时间
         await self.update_last_used(user_id)
-        
+
         # 构建请求路径（非流式接口）
         path = f"/v1beta/models/{model}:generateContent"
         url = f"{self.base_url}{path}"
-        
+
         # 准备请求头
         headers = {"Authorization": f"Bearer {api_key}"}
+
+        # 添加用户专属账号设置头
+        dedicated_header = await self._get_user_dedicated_header(user_id)
+        headers.update(dedicated_header)
+
         if config_type:
             headers["X-Account-Type"] = config_type
         

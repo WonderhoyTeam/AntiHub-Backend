@@ -238,13 +238,13 @@ class UserService:
     async def get_beta_status(self, user_id: int) -> int:
         """
         获取用户的 Beta 计划状态
-        
+
         Args:
             user_id: 用户 ID
-            
+
         Returns:
             Beta 状态值
-            
+
         Raises:
             UserNotFoundError: 用户不存在
         """
@@ -255,6 +255,24 @@ class UserService:
                 details={"user_id": user_id}
             )
         return user.beta
+
+    # ==================== 专属账号设置 ====================
+
+    async def set_use_only_dedicated(self, user_id: int, use_only_dedicated: bool) -> User:
+        """
+        设置是否仅使用专属账号
+
+        Args:
+            user_id: 用户 ID
+            use_only_dedicated: 是否仅使用专属账号
+
+        Returns:
+            更新后的 User 对象
+
+        Raises:
+            UserNotFoundError: 用户不存在
+        """
+        return await self.user_repo.update(user_id, use_only_dedicated=use_only_dedicated)
     
     # ==================== OAuth 令牌存储 ====================
     

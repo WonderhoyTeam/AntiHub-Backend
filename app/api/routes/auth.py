@@ -29,7 +29,7 @@ from app.schemas.auth import (
     OAuthInitiateResponse,
     OAuthCallbackParams,
 )
-from app.schemas.user import UserResponse, OAuthUserCreate, JoinBetaResponse
+from app.schemas.user import UserResponse, OAuthUserCreate, JoinBetaResponse, UpdateUseOnlyDedicatedRequest, UseOnlyDedicatedResponse
 from app.core.config import get_settings
 from app.core.exceptions import (
     InvalidCredentialsError,
@@ -61,10 +61,10 @@ async def login(
 ):
     """
     传统用户名密码登录
-    
+
     - **username**: 用户名
     - **password**: 密码
-    
+
     返回 JWT 访问令牌、刷新令牌和用户信息
     """
     settings = get_settings()
@@ -74,7 +74,7 @@ async def login(
             username=request.username,
             password=request.password
         )
-        
+
         # 返回响应
         return LoginResponse(
             access_token=access_token,
@@ -83,7 +83,7 @@ async def login(
             expires_in=settings.jwt_expire_seconds,
             user=UserResponse.model_validate(user)
         )
-        
+
     except InvalidCredentialsError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -115,13 +115,13 @@ async def refresh_token(
 ):
     """
     刷新访问令牌
-    
+
     使用有效的 refresh_token 获取新的令牌对，实现无感刷新
-    
+
     - **refresh_token**: 刷新令牌
-    
+
     返回新的 access_token 和 refresh_token
-    
+
     注意：每次刷新后，旧的 refresh_token 将失效（Token 轮换机制）
     """
     settings = get_settings()
@@ -130,7 +130,7 @@ async def refresh_token(
         new_access_token, new_refresh_token, user = await auth_service.refresh_tokens(
             refresh_token=request.refresh_token
         )
-        
+
         # 返回响应
         return RefreshTokenResponse(
             access_token=new_access_token,
@@ -138,7 +138,7 @@ async def refresh_token(
             token_type="bearer",
             expires_in=settings.jwt_expire_seconds
         )
-        
+
     except TokenExpiredError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -181,24 +181,24 @@ async def initiate_sso(
 ):
     """
     发起 OAuth SSO 登录流程
-    
+
     生成授权 URL 和 state 参数,客户端应重定向到返回的 authorization_url
     """
     try:
         # 生成 state
         state = oauth_service.generate_state()
-        
+
         # 存储 state
         await oauth_service.store_state(state)
-        
+
         # 生成授权 URL
         authorization_url = oauth_service.generate_authorization_url(state)
-        
+
         return OAuthInitiateResponse(
             authorization_url=authorization_url,
             state=state
         )
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -222,23 +222,23 @@ async def oauth_callback(
 ):
     """
     OAuth 回调处理
-    
+
     - **code**: OAuth 授权码
     - **state**: OAuth state 参数(用于防止 CSRF 攻击)
-    
+
     验证 state,交换访问令牌,获取用户信息,创建或更新用户,返回系统 JWT 令牌
     """
     settings = get_settings()
     try:
         # 1. 验证 state
         await oauth_service.verify_state(state)
-        
+
         # 2. 交换授权码获取访问令牌
         oauth_token = await oauth_service.exchange_code_for_token(code)
-        
+
         # 3. 使用访问令牌获取用户信息
         user_info = await oauth_service.get_user_info(oauth_token.access_token)
-        
+
         # 4. 创建或更新用户
         oauth_user_data = OAuthUserCreate(
             oauth_id=str(user_info.get("id")),
@@ -246,9 +246,9 @@ async def oauth_callback(
             avatar_url=user_info.get("avatar_url") or user_info.get("avatar"),
             trust_level=user_info.get("trust_level", 0)
         )
-        
+
         user = await user_service.create_user_from_oauth(oauth_user_data)
-        
+
         # 4.5 自动创建plug-in-api账号并绑定（仅对新用户）
         try:
             # 检查用户是否已有plug-in API密钥
@@ -263,20 +263,20 @@ async def oauth_callback(
         except Exception as e:
             # 记录错误但不影响登录流程
             print(f"❌ 自动创建plug-in账号失败: {e}")
-        
+
         # 5. 保存 OAuth 令牌
         expires_at = oauth_service.calculate_token_expiry(oauth_token.expires_in)
         await user_service.save_oauth_token(user.id, oauth_token, expires_at)
-        
+
         # 6. 更新最后登录时间
         await user_service.update_last_login(user.id)
-        
+
         # 7. 创建系统令牌对（access + refresh）
         access_token, refresh_token = await auth_service.create_token_pair(user)
-        
+
         # 8. 创建会话
         await auth_service.create_session(user.id, access_token)
-        
+
         # 9. 返回响应
         return LoginResponse(
             access_token=access_token,
@@ -285,7 +285,7 @@ async def oauth_callback(
             expires_in=settings.jwt_expire_seconds,
             user=UserResponse.model_validate(user)
         )
-        
+
     except InvalidOAuthStateError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -321,24 +321,24 @@ async def initiate_github_login(
 ):
     """
     发起 GitHub OAuth SSO 登录流程
-    
+
     生成授权 URL 和 state 参数,客户端应重定向到返回的 authorization_url
     """
     try:
         # 生成 state
         state = github_oauth_service.generate_state()
-        
+
         # 存储 state
         await github_oauth_service.store_state(state)
-        
+
         # 生成授权 URL
         authorization_url = github_oauth_service.generate_authorization_url(state)
-        
+
         return OAuthInitiateResponse(
             authorization_url=authorization_url,
             state=state
         )
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -361,12 +361,12 @@ async def github_oauth_callback(
 ):
     """
     GitHub OAuth 回调处理
-    
+
     前端在接收到GitHub的回调后，调用此接口完成认证流程
-    
+
     - **code**: GitHub OAuth 授权码
     - **state**: GitHub OAuth state 参数(用于防止 CSRF 攻击)
-    
+
     验证 state,交换访问令牌,获取用户信息,创建或更新用户,返回系统 JWT 令牌
     """
     settings = get_settings()
@@ -375,13 +375,13 @@ async def github_oauth_callback(
     try:
         # 1. 验证 state
         await github_oauth_service.verify_state(state)
-        
+
         # 2. 交换授权码获取访问令牌
         oauth_token = await github_oauth_service.exchange_code_for_token(code)
-        
+
         # 3. 使用访问令牌获取用户信息
         user_info = await github_oauth_service.get_user_info(oauth_token.access_token)
-        
+
         # 3.5 尝试获取用户邮箱（如果主信息中没有）
         if not user_info.get("email"):
             emails = await github_oauth_service.get_user_emails(oauth_token.access_token)
@@ -390,7 +390,7 @@ async def github_oauth_callback(
                 if email_info.get("primary"):
                     user_info["email"] = email_info.get("email")
                     break
-        
+
         # 4. 创建或更新用户
         oauth_user_data = OAuthUserCreate(
             oauth_id=f"github:{user_info.get('id')}",  # 添加前缀以区分不同的OAuth提供商
@@ -398,9 +398,9 @@ async def github_oauth_callback(
             avatar_url=user_info.get("avatar_url"),
             trust_level=0  # GitHub用户默认信任级别为0
         )
-        
+
         user = await user_service.create_user_from_oauth(oauth_user_data)
-        
+
         # 4.5 自动创建plug-in-api账号并绑定（仅对新用户）
         try:
             # 检查用户是否已有plug-in API密钥
@@ -415,20 +415,20 @@ async def github_oauth_callback(
         except Exception as e:
             # 记录错误但不影响登录流程
             print(f"❌ 自动创建plug-in账号失败: {e}")
-        
+
         # 5. 保存 OAuth 令牌
         expires_at = github_oauth_service.calculate_token_expiry(oauth_token.expires_in)
         await user_service.save_oauth_token(user.id, oauth_token, expires_at)
-        
+
         # 6. 更新最后登录时间
         await user_service.update_last_login(user.id)
-        
+
         # 7. 创建系统令牌对（access + refresh）
         access_token, refresh_token = await auth_service.create_token_pair(user)
-        
+
         # 8. 创建会话
         await auth_service.create_session(user.id, access_token)
-        
+
         # 9. 返回响应
         return LoginResponse(
             access_token=access_token,
@@ -437,7 +437,7 @@ async def github_oauth_callback(
             expires_in=settings.jwt_expire_seconds,
             user=UserResponse.model_validate(user)
         )
-        
+
     except InvalidOAuthStateError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -476,14 +476,14 @@ async def logout(
 ):
     """
     用户登出
-    
+
     需要在请求头中提供有效的 JWT 令牌:
     ```
     Authorization: Bearer <your_token>
     ```
-    
+
     可选提供 refresh_token 以使其失效
-    
+
     登出后 access_token 和 refresh_token 都将失效
     """
     try:
@@ -492,24 +492,24 @@ async def logout(
         access_token = ""
         if auth_header.startswith("Bearer "):
             access_token = auth_header[7:]
-        
+
         # 获取 refresh token（如果提供）
         refresh_token = None
         if logout_request and logout_request.refresh_token:
             refresh_token = logout_request.refresh_token
-        
+
         # 执行登出
         await auth_service.logout(
             user_id=current_user.id,
             access_token=access_token,
             refresh_token=refresh_token
         )
-        
+
         return LogoutResponse(
             message="登出成功",
             success=True
         )
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -529,22 +529,22 @@ async def logout_all_devices(
 ):
     """
     登出所有设备
-    
+
     需要在请求头中提供有效的 JWT 令牌:
     ```
     Authorization: Bearer <your_token>
     ```
-    
+
     此操作将撤销用户的所有 refresh token，使所有设备都需要重新登录
     """
     try:
         await auth_service.logout_all_devices(current_user.id)
-        
+
         return LogoutResponse(
             message="已登出所有设备",
             success=True
         )
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -565,12 +565,12 @@ async def get_current_user_info(
 ):
     """
     获取当前用户信息
-    
+
     需要在请求头中提供有效的 JWT 令牌:
     ```
     Authorization: Bearer <your_token>
     ```
-    
+
     返回当前用户的详细信息
     """
     try:
@@ -599,17 +599,17 @@ async def check_username(
 ):
     """
     检查用户名是否存在
-    
+
     用于登录前验证用户是否已注册
-    
+
     - **username**: 要检查的用户名
-    
+
     返回用户是否存在的信息
     """
     try:
         # 通过用户名查找用户
         user = await user_service.get_user_by_username(username)
-        
+
         if user:
             return {
                 "exists": True,
@@ -643,12 +643,12 @@ async def join_beta(
 ):
     """
     加入 Beta 计划
-    
+
     需要在请求头中提供有效的 JWT 令牌:
     ```
     Authorization: Bearer <your_token>
     ```
-    
+
     将当前用户的 beta 字段设置为 1
     """
     try:
@@ -659,7 +659,7 @@ async def join_beta(
                 message=f"用户 ID {current_user.id} 不存在",
                 details={"user_id": current_user.id}
             )
-        
+
         # 检查用户是否已经加入 beta
         if latest_user.beta == 1:
             return JoinBetaResponse(
@@ -667,16 +667,16 @@ async def join_beta(
                 message="您已经加入了 Beta 计划",
                 beta=latest_user.beta
             )
-        
+
         # 加入 beta 计划
         updated_user = await user_service.join_beta(current_user.id)
-        
+
         return JoinBetaResponse(
             success=True,
             message="成功加入 Beta 计划",
             beta=updated_user.beta
         )
-        
+
     except UserNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -701,12 +701,12 @@ async def get_beta_status(
 ):
     """
     获取 Beta 计划状态
-    
+
     需要在请求头中提供有效的 JWT 令牌:
     ```
     Authorization: Bearer <your_token>
     ```
-    
+
     返回当前用户的 beta 状态
     """
     # 从数据库获取最新状态
@@ -716,9 +716,46 @@ async def get_beta_status(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="用户不存在"
         )
-    
+
     return JoinBetaResponse(
         success=True,
         message="已加入 Beta 计划" if latest_user.beta == 1 else "未加入 Beta 计划",
         beta=latest_user.beta
+    )
+
+
+# ==================== 专属账号设置 ====================
+
+@router.get(
+    "/use-only-dedicated",
+    response_model=UseOnlyDedicatedResponse,
+    summary="获取专属账号偏好",
+    description="获取当前用户的专属账号偏好设置"
+)
+async def get_use_only_dedicated(
+    current_user: User = Depends(get_current_user),
+    user_service: UserService = Depends(get_user_service)
+):
+    """
+    获取专属账号偏好
+
+    需要在请求头中提供有效的 JWT 令牌:
+    ```
+    Authorization: Bearer <your_token>
+    ```
+
+    返回当前用户的专属账号偏好设置
+    """
+    latest_user = await user_service.get_user_by_id(current_user.id)
+    if not latest_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="用户不存在"
+        )
+
+    message = "仅使用专属账号" if latest_user.use_only_dedicated else "使用所有可用账号"
+    return UseOnlyDedicatedResponse(
+        success=True,
+        message=message,
+        use_only_dedicated=latest_user.use_only_dedicated
     )

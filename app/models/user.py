@@ -88,6 +88,14 @@ class User(Base):
         nullable=False,
         comment="是否加入beta计划"
     )
+
+    # 是否仅使用专属账号
+    use_only_dedicated: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        comment="是否仅使用用户自己创建的专属账号"
+    )
     
     # 时间戳
     created_at: Mapped[datetime] = mapped_column(

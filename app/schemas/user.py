@@ -91,7 +91,11 @@ class UserUpdate(BaseModel):
         ge=0,
         description="是否加入beta计划"
     )
-    
+    use_only_dedicated: Optional[bool] = Field(
+        None,
+        description="是否仅使用专属账号"
+    )
+
     model_config = {
         "json_schema_extra": {
             "examples": [
@@ -116,6 +120,7 @@ class UserResponse(BaseModel):
     is_active: bool = Field(..., description="账号是否激活")
     is_silenced: bool = Field(..., description="是否被禁言")
     beta: int = Field(default=0, description="是否加入beta计划")
+    use_only_dedicated: bool = Field(default=False, description="是否仅使用专属账号")
     created_at: datetime = Field(..., description="创建时间")
     last_login_at: Optional[datetime] = Field(None, description="最后登录时间")
     
@@ -169,9 +174,27 @@ class OAuthUserCreate(BaseModel):
 
 class JoinBetaResponse(BaseModel):
     """加入beta计划响应"""
-    
+
     success: bool = Field(..., description="是否成功")
     message: str = Field(..., description="响应消息")
     beta: int = Field(..., description="当前beta状态")
-    
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ==================== 专属账号设置 Schema ====================
+
+class UpdateUseOnlyDedicatedRequest(BaseModel):
+    """更新专属账号设置请求"""
+
+    use_only_dedicated: bool = Field(..., description="是否仅使用专属账号")
+
+
+class UseOnlyDedicatedResponse(BaseModel):
+    """专属账号设置响应"""
+
+    success: bool = Field(..., description="是否成功")
+    message: str = Field(..., description="响应消息")
+    use_only_dedicated: bool = Field(..., description="当前专属账号设置")
+
     model_config = ConfigDict(from_attributes=True)
