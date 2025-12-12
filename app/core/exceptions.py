@@ -326,7 +326,7 @@ class AccountDisabledError(PermissionError):
 
 class AccountSilencedError(PermissionError):
     """账号已被禁言异常"""
-    
+
     def __init__(
         self,
         message: str = "账号已被禁言",
@@ -335,6 +335,21 @@ class AccountSilencedError(PermissionError):
         super().__init__(
             message=message,
             error_code="ACCOUNT_SILENCED",
+            details=details
+        )
+
+
+class AccountCreationDisabledError(PermissionError):
+    """新账号创建已禁用异常"""
+
+    def __init__(
+        self,
+        message: str = "新账号创建功能已关闭",
+        details: Optional[Dict[str, Any]] = None
+    ):
+        super().__init__(
+            message=message,
+            error_code="ACCOUNT_CREATION_DISABLED",
             details=details
         )
 

@@ -8,7 +8,8 @@ from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import hash_password
-from app.core.exceptions import UserNotFoundError, UserAlreadyExistsError
+from app.core.exceptions import UserNotFoundError, UserAlreadyExistsError, AccountCreationDisabledError
+from app.core.config import get_settings
 from app.repositories.user_repository import UserRepository
 from app.repositories.oauth_token_repository import OAuthTokenRepository
 from app.models.user import User
@@ -105,15 +106,16 @@ class UserService:
     ) -> User:
         """
         从 OAuth 数据创建用户
-        
+
         Args:
             oauth_data: OAuth 用户数据
-            
+
         Returns:
             创建的 User 对象
-            
+
         Raises:
             UserAlreadyExistsError: 用户名或 OAuth ID 已存在
+            AccountCreationDisabledError: 新账号创建功能已关闭
         """
         # 检查 OAuth ID 是否已存在
         existing_user = await self.get_user_by_oauth_id(oauth_data.oauth_id)
@@ -124,7 +126,15 @@ class UserService:
                 avatar_url=oauth_data.avatar_url,
                 trust_level=oauth_data.trust_level
             )
-        
+
+        # 检查是否允许创建新账号
+        settings = get_settings()
+        if not settings.allow_new_account_creation:
+            raise AccountCreationDisabledError(
+                message="新账号创建功能已关闭，请联系管理员",
+                details={"oauth_id": oauth_data.oauth_id}
+            )
+
         # 创建新用户
         user = await self.user_repo.create(
             username=oauth_data.username,
@@ -133,7 +143,7 @@ class UserService:
             avatar_url=oauth_data.avatar_url,
             trust_level=oauth_data.trust_level
         )
-        
+
         return user
     
     async def update_user_info(

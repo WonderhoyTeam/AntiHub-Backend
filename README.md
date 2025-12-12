@@ -128,6 +128,9 @@ GITHUB_REDIRECT_URI=http://localhost:3000/api/auth/github/callback
 PLUGIN_API_BASE_URL=http://localhost:8045
 PLUGIN_API_ADMIN_KEY=sk-admin-your-admin-key-here
 PLUGIN_API_ENCRYPTION_KEY=your-encryption-key-here-min-32-chars
+
+# 账号创建配置
+ALLOW_NEW_ACCOUNT_CREATION=true  # 设置为 false 可禁止新用户注册
 ```
 
 **重要**：`PLUGIN_API_ENCRYPTION_KEY` 必须是一个有效的 Fernet 密钥（32字节的URL安全base64编码）。可以使用以下 Python 代码生成：
@@ -178,14 +181,24 @@ uv run python app/main.py
 |------|------|------|
 | POST | `/api/auth/login` | 用户名密码登录 |
 | POST | `/api/auth/refresh` | 刷新访问令牌（无感刷新） |
-| GET | `/api/auth/sso/initiate` | 发起 OAuth SSO 登录 |
-| GET | `/api/auth/sso/callback` | OAuth 回调处理 |
-| GET | `/api/auth/github/login` | 发起 GitHub OAuth 登录 |
-| POST | `/api/auth/github/callback` | GitHub OAuth 回调处理 |
+| GET | `/api/auth/sso/initiate` | 发起 OAuth SSO 登录 (已废弃，建议使用 OIDC 端点) |
+| GET | `/api/auth/sso/callback` | OAuth 回调处理 (已废弃，建议使用 OIDC 端点) |
+| GET | `/api/auth/github/login` | 发起 GitHub OAuth 登录 (已废弃，建议使用 OIDC 端点) |
+| POST | `/api/auth/github/callback` | GitHub OAuth 回调处理 (已废弃，建议使用 OIDC 端点) |
 | POST | `/api/auth/logout` | 用户登出 |
 | POST | `/api/auth/logout-all` | 登出所有设备 |
 | GET | `/api/auth/me` | 获取当前用户信息 |
 | GET | `/api/auth/check-username` | 检查用户名是否存在 |
+
+### OIDC 认证 (推荐)
+
+通用 OpenID Connect 认证端点，支持多种 OAuth 提供商：
+
+| 方法 | 路径 | 描述 |
+|------|------|------|
+| GET | `/api/auth/oidc/providers` | 获取支持的 OIDC 提供商列表 |
+| GET | `/api/auth/oidc/{provider}/login` | 发起 OIDC 登录 (provider: linux_do, github) |
+| POST | `/api/auth/oidc/{provider}/callback` | OIDC 回调处理 |
 
 ### 健康检查
 
@@ -343,7 +356,9 @@ curl -X POST "http://localhost:8008/api/auth/refresh" \
   }'
 ```
 
-### OAuth SSO 登录
+### OAuth SSO 登录 (已废弃)
+
+**注意**：以下端点已废弃，请使用新的 OIDC 端点。
 
 ```bash
 # 1. 获取授权 URL
@@ -353,7 +368,9 @@ curl "http://localhost:8008/api/auth/sso/initiate"
 # 3. 授权后会重定向到 callback URL 并自动完成登录
 ```
 
-### GitHub OAuth 登录
+### GitHub OAuth 登录 (已废弃)
+
+**注意**：以下端点已废弃，请使用新的 OIDC 端点。
 
 ```bash
 # 1. 获取 GitHub 授权 URL
@@ -365,6 +382,29 @@ curl -X POST "http://localhost:8008/api/auth/github/callback" \
   -H "Content-Type: application/json" \
   -d '{
     "code": "github_authorization_code",
+    "state": "oauth_state"
+  }'
+```
+
+### OIDC 登录 (推荐)
+
+使用新的通用 OIDC 端点，支持多种 OAuth 提供商：
+
+```bash
+# 1. 获取支持的提供商列表
+curl "http://localhost:8008/api/auth/oidc/providers"
+
+# 2. 使用 Linux.do 登录
+curl "http://localhost:8008/api/auth/oidc/linux_do/login"
+
+# 3. 使用 GitHub 登录
+curl "http://localhost:8008/api/auth/oidc/github/login"
+
+# 4. 处理回调 (前端调用)
+curl -X POST "http://localhost:8008/api/auth/oidc/{provider}/callback" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "code": "authorization_code",
     "state": "oauth_state"
   }'
 ```
@@ -564,6 +604,37 @@ LOG_LEVEL=INFO
 4. 更新 API 文档
 
 详细集成说明请参考 [`PLUGIN_API_INTEGRATION.md`](PLUGIN_API_INTEGRATION.md)。
+
+### 账号创建管理
+
+系统支持通过环境变量控制是否允许新用户通过 OAuth 注册账号。
+
+#### 配置方式
+
+在 `.env` 文件中设置：
+
+```bash
+# 允许新用户注册（默认）
+ALLOW_NEW_ACCOUNT_CREATION=true
+
+# 禁止新用户注册
+ALLOW_NEW_ACCOUNT_CREATION=false
+```
+
+#### 行为说明
+
+- **启用时（true）**：新用户可以通过 OAuth（Linux.do 或 GitHub）登录并自动创建账号
+- **禁用时（false）**：
+  - 已有用户可以正常登录
+  - 新用户尝试 OAuth 登录时会收到 403 错误："新账号创建功能已关闭，请联系管理员"
+  - 适用于封闭测试、私有部署或维护期间
+
+#### 使用场景
+
+- **封闭 Beta 测试**：仅允许特定用户访问
+- **私有部署**：企业内部使用，不对外开放
+- **维护模式**：暂时冻结新用户注册
+- **容量控制**：限制用户数量
 
 ### 测试
 

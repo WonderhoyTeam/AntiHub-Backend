@@ -40,6 +40,7 @@ from app.core.exceptions import (
     TokenExpiredError,
     TokenBlacklistedError,
     UserNotFoundError,
+    AccountCreationDisabledError,
 )
 
 
@@ -295,6 +296,11 @@ async def oauth_callback(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=e.message
         )
+    except AccountCreationDisabledError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=e.message
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -440,6 +446,11 @@ async def github_oauth_callback(
     except OAuthError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
+            detail=e.message
+        )
+    except AccountCreationDisabledError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
             detail=e.message
         )
     except Exception as e:

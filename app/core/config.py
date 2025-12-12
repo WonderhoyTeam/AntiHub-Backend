@@ -65,6 +65,12 @@ class Settings(BaseSettings):
         ...,
         description="用于加密存储用户API密钥的密钥"
     )
+
+    # 账号创建配置
+    allow_new_account_creation: bool = Field(
+        default=True,
+        description="是否允许创建新账号（通过OAuth登录）"
+    )
     
     @field_validator("app_env")
     @classmethod

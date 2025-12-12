@@ -26,7 +26,8 @@ from app.api.routes import (
     usage_router,
     kiro_router,
     anthropic_router,
-    gemini_router
+    gemini_router,
+    oidc_router
 )
 
 # 配置日志
@@ -142,8 +143,9 @@ def create_app() -> FastAPI:
     )
     
     # ==================== 注册路由 ====================
-    
+
     app.include_router(auth_router, prefix="/api")
+    app.include_router(oidc_router, prefix="/api")  # 新的 OIDC 通用路由
     app.include_router(health_router, prefix="/api")
     app.include_router(plugin_api_router, prefix="/api")
     app.include_router(api_keys_router, prefix="/api")
