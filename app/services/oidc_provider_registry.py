@@ -128,10 +128,10 @@ class OIDCProviderRegistry:
             provider_id="pocketid",
             provider_name="PocketID",
             provider_type=OIDCProviderType.POCKETID,
-            # Standard OIDC endpoints
+            # PocketID OIDC endpoints (from .well-known/openid-configuration)
             authorization_endpoint=f"{base_url}/authorize",
-            token_endpoint=f"{base_url}/token",
-            userinfo_endpoint=f"{base_url}/userinfo",
+            token_endpoint=f"{base_url}/api/oidc/token",
+            userinfo_endpoint=f"{base_url}/api/oidc/userinfo",
             client_id=settings.pocketid_client_id,
             client_secret=settings.pocketid_client_secret,
             redirect_uri=settings.pocketid_redirect_uri,
